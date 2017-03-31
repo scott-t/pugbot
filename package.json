@@ -1,0 +1,16 @@
+{
+  "name": "pug-bot",
+  "version": "0.0.0",
+  "description": "PUG Bot",
+  "main": "app.js",
+  "author": {
+    "name": "Scott"
+  },
+  "dependencies": {
+    "csv": "^1.1.1",
+    "datejs": "^1.0.0-rc3",
+    "discord.js": "^11.0.0",
+    "moment-timezone": "^0.5.11",
+    "xml2js": "^0.4.17"
+  }
+}
