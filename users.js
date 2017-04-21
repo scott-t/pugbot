@@ -1,5 +1,4 @@
 ﻿const hooks = require('./hooks.js');
-const tools = require('./tools.js');
 require('datejs');
 const fs = require('fs');
 const moment = require('moment-timezone');
@@ -104,6 +103,17 @@ hooks.registerMessageHook('who', function (msg, args) {
 
 });
 
+hooks.registerMessageHook('where', function (msg, args) {
+    if (exports.isAdmin(msg.author) && msg.author.dmChannel) {
+        if (args.length == 0) {
+            let dm = msg.author.dmChannel;
+            let output = 'I am in ' + msg.client.guilds.size + ' servers:\n';
+            msg.client.guilds.forEach((guild) => { output += guild.name + ' - ' + guild.id + '\n'; });
+            dm.sendMessage(output);
+        }
+    }
+});
+
 hooks.registerMessageHook('whoami', function (msg, args) {
 msg.channel.sendMessage(msg.author.id);
 });
@@ -166,7 +176,7 @@ hooks.registerMessageHook('time', function (msg, args) {
     }
 
     if (user['timezone'] == undefined || user['timezone'].length <= 0) {
-        msg.channel.sendMessage("I don't know " + user + "'s timezone!");
+        msg.channel.sendMessage("I don't know " + exports.getUserNick(user) + "'s timezone!");
     }
     else {
         msg.channel.sendMessage("I think it's " + moment().tz(user['timezone']).format('h:mm a') + " where " + exports.getUserNick(id) + " is");

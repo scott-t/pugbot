@@ -1,5 +1,4 @@
 ﻿const hooks = require('./hooks.js');
-const tools = require('./tools.js');
 const fs = require('fs');
 const parse = require('csv-parse/lib/sync');
 const moment = require('moment-timezone');
@@ -72,7 +71,7 @@ function doSetSearch(msg, args) {
     else if (matches.length == 1) {
         printSet(matches[0], msg.channel);
     }
-    else if (matches.length < 5) {
+    else if (matches.length < 8) {
         let m = '';
         for (i = 0; i < matches.length; ++i)
             m += ' ' + s[matches[i]]['setName'] + ',';

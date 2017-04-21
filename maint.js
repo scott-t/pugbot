@@ -1,5 +1,4 @@
 ﻿const hooks = require('./hooks.js');
-const tools = require('./tools.js');
 const users = require('./users.js');
 const fs = require('fs');
 const moment = require('moment-timezone');
