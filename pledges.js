@@ -26,13 +26,34 @@ function getDungeon(npc, idx) {
     return rotation[npc][idx % rotation[npc].length];
 }
 
-hooks.registerMessageHook('pledges', function (msg, args) {
+hooks.registerMessageHook('pledges', function(msg, args) {
+    let search = undefined;
+    if (args.length > 0)
+        search = args[0];
+
     let elapsed = moment().unix() - baseTimestamp;
     let diff = Math.floor(elapsed / 86400);
     remaining = 1440 - Math.floor((elapsed % 86400) / 60);
-    
-    msg.channel.sendMessage('```css\n' + getDungeon(Maj, diff) + '\n' + getDungeon(Glirion, diff) + '\n' + getDungeon(Urgalag, diff) +
-        (remaining < 30 ? `\n\nIn ${remaining} min: ` + getDungeon(Maj, diff+1) + ', ' + getDungeon(Glirion, diff+1) + ', ' + getDungeon(Urgalag, diff+1) : '') + '```');
+
+    if (search == undefined) {
+        msg.channel.sendMessage('```css\n' + getDungeon(Maj, diff) + '\n' + getDungeon(Glirion, diff) + '\n' + getDungeon(Urgalag, diff) +
+            (remaining < 30 ? `\n\nIn ${remaining} min: ` + getDungeon(Maj, diff + 1) + ', ' + getDungeon(Glirion, diff + 1) + ', ' + getDungeon(Urgalag, diff + 1) : '') + '```');
+    }
+    else {
+        for (i = 0; i < 20; ++i) {
+            let pledges = getDungeon(Maj, diff + i) + '\n' + getDungeon(Glirion, diff + i) + '\n' + getDungeon(Urgalag, diff + i);
+            if (pledges.toLowerCase().indexOf(search.toLowerCase()) >= 0) {
+                // Match
+                if (diff == 0) {
+                    msg.channel.sendMessage('```css\n' + search + ' is a current pledge for another ' + (remaining > 60 ? Math.floor(remaining / 60) + ' hr' : remaining + ' min') + '!\n' + pledges + '```');
+                }
+                else {
+                    msg.channel.sendMessage('```css\nIn ' + (i-1) + ' days ' + (remaining > 60 ? Math.floor(remaining / 60) + ' hr' : remaining + ' min') + ' the pledges will be:\n' + pledges + '```');
+                }
+                break;
+            }
+        }
+    }
 });
 
 hooks.registerMessageHook('nextpledges', function (msg, args) {
