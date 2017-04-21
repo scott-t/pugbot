@@ -11,6 +11,7 @@
     "datejs": "^1.0.0-rc3",
     "discord.js": "^11.0.0",
     "moment-timezone": "^0.5.11",
+    "unzipper": "^0.8.8",
     "xml2js": "^0.4.17"
   }
 }

@@ -22,6 +22,7 @@ const users = require('./users.js');
 const raid = require('./raid.js');
 const pledges = require('./pledges.js');
 const maint = require('./maint.js');
+const ttc = require('./ttc.js');
 const uesp = require('./uesp.js');
 
 // Error handler
