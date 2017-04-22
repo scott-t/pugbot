@@ -4,47 +4,24 @@ const unzip = require('unzipper');
 const parse = require('csv-parse/lib/sync');
 const moment = require('moment-timezone');
 
-const http = require('https');
+const web = require('./web.js');
 
-const priceUrl = ['us.tamrieltradecentre.com', '/Download/PriceTable'];
-
-function printLevel(level) {
-    return (level > 50 ? "CP" + (level - 50) : "L" + level);
-}
+const priceUrl = 'https://us.tamrieltradecentre.com/Download/PriceTable';
 
 const qualityMap = [['Normal', 'White'], ['Fine', 'Green'], ['Superior', 'Blue'], ['Epic', 'Purple'], ['Legendary', 'Gold', 'Yellow']];
 const traitMap = ['Powered', 'Charged', 'Precise', 'Infused', 'Defending', 'Training', 'Sharpened', 'Decisive', 'Sturdy', 'Impenetrable', 'Reinforced', 'Well Fitted', 'Prosperous', 'Divines', 'Nirnhoned', 'Intricate', 'Ornate', 'Arcane', 'Healthy', 'Robust', 'Special'];
 const typeMap = ['One-Hand', 'Two-Hand', 'Light', 'Medium', 'Heavy', 'Shield', ['Accessory', 'Jewellery', 'Jewels', 'Jewelry'], 'SoulGem', 'ArmorGlyph', 'WeaponGlyph', ['JewelGlyph'], 'Alchemy', 'Blacksmithing', 'Clothing', 'Enchanting', 'Provisioning', 'Woodworking', ['', 'Motif'], 'StyleMaterial', 'ArmorTrait', 'WeaponTrait', ['', 'Food'], ['', 'Drink'], ['', 'Potion'], ['', 'Bait'], 'Tool', ['', 'Siege'], 'Trophy', 'Container', ['', 'Fish'], 'StyleRawMaterial', ['', 'Misc'], ['', 'Poison'], 'CraftingStation', ['', 'Light'], 'Ornamental', 'Seating', 'TargetDummy', ['', 'Recipe'], 'MasterWrit'];
 
-function getZip(uri, callback) {
-    /*callback();
-    return;*/
-
-    if (fs.existsSync('ttcprice.zip'))
-        fs.unlinkSync('ttcprice.zip');
-    let z = fs.createWriteStream('ttcprice.zip').on('open', () => {
-        
-        http.get({
-            host: uri[0],
-            path: uri[1]
-        }, function(response) {
-            response.on('data', function(d) {
-                z.write(d);
-            });
-            response.on('end', function () {
-                z.close();
-                callback();
-            });
-        });
-        
-        //var spawn = require('child_process').execFile('wget', ['-O', 'ttcprice.zip', 'https://us.tamrieltradecentre.com/Download/PriceTable'], (error, stdout, stderr) => { if (!error) callback(); });
-    });
-    
+//
+function printLevel(level) {
+    return (level > 50 ? 'CP' + (level - 50) : 'L' + level);
 }
 
+// Load data
 var ttc = undefined;
 var ttcitems = undefined;
 var lastUpdate = new Date(2000, 0);
+
 if (fs.existsSync('./ttc.json') && fs.existsSync('./ttcitems.json') && fs.existsSync('./ttcprice.zip')) {
     try {
         ttc = JSON.parse(fs.readFileSync('ttc.json', 'utf8'));
@@ -55,34 +32,41 @@ if (fs.existsSync('./ttc.json') && fs.existsSync('./ttcitems.json') && fs.exists
     lastUpdate = fs.statSync('ttcprice.zip').mtime;
 }
 
+// Create message
 function printPrice(item, priceData, channel) {
-    //{["Avg"]=175,["Max"]=175,["Min"]=175,["EntryCount"]=1,["AmountCount"]=1,}
+    //{["Avg"]=175,["Max"]=175,["Min"]=175,["EntryCount"]=1,["AmountCount"]=1,["SuggestedPrice"]=?,}
     let suggested = priceData['SuggestedPrice'];
 
-    let msg = "**" + getItemDesc(item) + "**\n\n" + (suggested != undefined ? "TTC Suggested " + Math.ceil(suggested) + " ~ " + Math.floor(suggested * 1.25) : "") + "\nAvg " + priceData['Avg'].toLocaleString() + " / Min " + priceData['Min'].toLocaleString() + " / Max " + priceData['Max'].toLocaleString() + "\n" + priceData['EntryCount'] + " listings / " + priceData['AmountCount'] + " items\n\nTTC prices updated " + moment(lastUpdate).fromNow();
+    let msg = '**' + getItemDesc(item) + '**\n\n' + (suggested != undefined ? 'TTC Suggested ' + Math.ceil(suggested) + ' ~ ' + Math.floor(suggested * 1.25) : '') + '\nAvg ' + priceData['Avg'].toLocaleString() + ' / Min ' + priceData['Min'].toLocaleString() + ' / Max ' + priceData['Max'].toLocaleString() + '\n' + priceData['EntryCount'] + ' listings / ' + priceData['AmountCount'] + ' items\n\nTTC prices updated ' + moment(lastUpdate).fromNow();
     channel.sendMessage(msg);
 }
 
+// Helper to try and identify a tier/level/quality/etc from the search string (with an undefined order)
 function matchTier(item, map, args) {
     if (args == undefined || map == undefined || args.length == 0 || item == undefined)
         return -1;
 
-    for (idx = 0; idx < args.length; ++idx) {
+    // Search through each word in the arg list
+    for (let idx = 0; idx < args.length; ++idx) {
         let arg = args[idx].toLowerCase();
 
-        for (i = 0; i < map.length; ++i) {
+        // Search through each item in the tier list
+        for (let i = 0; i < map.length; ++i) {
+            // ... which could have multiple names for that tier (eg, gold/legendary)
             if (Array.isArray(map[i])) {
-                for (j = 0; j < map[i].length; ++j) {
+                for (let j = 0; j < map[i].length; ++j) {
                     let it = map[i][j];
                     if (it.length == 0)
                         break;
 
+                    // if an item matches, return that tier index and remove the arg from the search list
                     if (it.toLowerCase().indexOf(arg) == 0) {
                         args.splice(idx, 1);
                         return i;
                     }
                 }
             }
+            // not a multi-named tier item, just see if we match
             else if (map[i].toLowerCase().indexOf(arg) == 0) {
                 args.splice(idx, 1);
                 return i;
@@ -94,20 +78,22 @@ function matchTier(item, map, args) {
     return -1;
 }
 
+// Generate the item textual description (name, level, etc)
 function getItemDesc(item) {
     let ret = item.name;
     if (item.trait >= 0 && traitMap[item.trait] != undefined)
-        ret = traitMap[item.trait].toLowerCase() + " " + ret;
+        ret = traitMap[item.trait].toLowerCase() + ' ' + ret;
 
     if (item.level >= 0)
-        ret = printLevel(item.level) + " " + ret;
+        ret = printLevel(item.level) + ' ' + ret;
 
     if (item.quality >= 0 && qualityMap[item.quality] != undefined)
-        ret = qualityMap[item.quality][0].toLowerCase() + " " + ret;
+        ret = qualityMap[item.quality][0].toLowerCase() + ' ' + ret;
 
     return ret;
 }
 
+// Helper to generate an error messge if multiple tiers for a type exist but we weren't told which
 function errorTier(msg, item, keys, map) {
     let q = '';
     if (Array.isArray(map[0]))
@@ -118,10 +104,12 @@ function errorTier(msg, item, keys, map) {
     msg.channel.sendMessage('I found ' + getItemDesc(item) + ' in multiple tiers\n\nPlease include one of the tiers in your search: ' + q);
 }
 
+// Helper to kick off price searches once we know what we're looking for
 function doPriceSearch(msg, args, item) {
     if (args.length == 0 || ttc == undefined || ttcitems == undefined)
         return;
 
+    // Get the item ID from the item list
     let itemId = ttcitems[item.name];
     if (itemId == undefined)
         return;
@@ -149,6 +137,7 @@ function doPriceSearch(msg, args, item) {
     if (keys.length == 1)
         item.level = keys[0];
 
+    // Special handling for levels and error reporting
     let trait = level[item.level];
     if (trait == undefined) {
         let q = '';
@@ -168,9 +157,12 @@ function doPriceSearch(msg, args, item) {
         return;
     }
 
-    if (price['Min'] != undefined)
+    // Some items (eg motifs) are done here
+    if (price['Min'] != undefined) {
         printPrice(item, price, msg.channel);
+    }
     else {
+        // but the others we may need a specifier on the type of item
         keys = Object.keys(price);
         if (keys.length == 1)
             item.category = keys[0];
@@ -181,19 +173,22 @@ function doPriceSearch(msg, args, item) {
             return;
         }
 
+        // Should now be able to print but check just in case
         if (category['Min'] != undefined)
             printPrice(item, category, msg.channel);
         else
-            console.log("More TTC processing needed for item " + item.name);
+            console.log('More TTC processing needed for item ' + item.name);
     }
 }
 
+// Helper to try and work out what item we are looking for
 function parseString(args) {
     let item = { name: '', quality: -1, level: -1, trait: -1, effect: [], category: -1 };
     item.quality = matchTier(item, qualityMap, args);
     item.trait = matchTier(item, traitMap, args);
     item.category = matchTier(item, typeMap, args);
 
+    // level lookup is a little 'special'
     for (i = 0; i < args.length; ++i) {
         let m = /^(l|cp?)?(\d+)$/gi.exec(args[i]);
         if (m != null) {
@@ -216,13 +211,19 @@ function parseString(args) {
     return item;
 }
 
+// Helper to actually action the ttc command
 function doItemSearch(msg, args) {
     if (args.length == 0 || ttc == undefined || ttcitems == undefined)
         return;
 
+    // Parse string. Strips all the 'descriptive' words (eg, sharp/epic/etc)
+    // to hopefully leave something that can be used to do the item search
     let item = parseString(args);
 
-    let search = args.join(" ").toLowerCase();
+    // Try and find a matching item ID (eg, in-game ID for 'sword of willpower')
+    // TODO: expand this to make it independant of order (eg 'willpower sword',
+    // and possible ' characters as well
+    let search = args.join(' ').toLowerCase();
     let matches = [];
     let keys = Object.keys(ttcitems);
     for (let i = 0; i < keys.length; ++i) {
@@ -237,47 +238,49 @@ function doItemSearch(msg, args) {
         }
     }
 
-
+    // If we don't find anything, complain
     if (matches.length <= 0) {
-        msg.channel.sendMessage("Unable to find an item matching '" + search + "'");
+        msg.channel.sendMessage('Unable to find an item matching \'' + search + '\'');
     }
+    // If 1 item, find a price for hopefully the specified tiers
     else if (matches.length == 1) {
         item.name = matches[0];
         doPriceSearch(msg, args, item);
     }
+    // Otherwise report too many items matched
     else if (matches.length < 8) {
         let m = '';
         for (i = 0; i < matches.length; ++i)
             m += ' ' + matches[i] + ',';
-        msg.channel.sendMessage("I found " + matches.length + " matches:" + m.substr(0, m.length-1));
+        msg.channel.sendMessage('I found ' + matches.length + ' matches:' + m.substr(0, m.length-1));
     }
     else {
-        msg.channel.sendMessage("There were too many matches for your search term");
+        msg.channel.sendMessage('There were too many matches for your search term');
     }
 }
 
+// Helper to convert the TTC data files from .lua to .json format
 function replaceFileSync(file) {
     //Read contents
     var contents = fs.readFileSync(file, 'utf8');
 
     contents = contents.replace(/\["/g, '"').replace(/"\]/g, '"').replace(/\[/g, '"').replace(/\]/g, '"').replace(/,}/g, '}').replace(/=/g, ':');
-
-    contents = contents.substring(contents.indexOf('{'), contents.lastIndexOf('}')+1);
+    contents = contents.substring(contents.indexOf('{'), contents.lastIndexOf('}') + 1);
 
     //Write to file
     fs.writeFileSync(file, contents, 'utf8');
     return true;
 }
 
+// TTC price check hook
 hooks.registerMessageHook('ttc', function (msg, args) {
     if (ttc == undefined || ttcitems == undefined || ttcitems.length < 100 || ttc['Data'] == undefined || (new Date() - lastUpdate) > 172800000) {
         msg.channel.startTyping();
-
         
         // 1 week
-        getZip(priceUrl, function() {
+        web.getHttpFile(priceUrl, 'ttcprice.zip', function () {
             // Unzip
-            fs.createReadStream('ttcprice.zip').pipe(unzip.Extract({ path: './' }).on('finish', () => {
+            fs.createReadStream('ttcprice.zip').pipe(unzip.Extract({ path: './' })).promise().then(() => {
                 // Parse/process into JSON
                 replaceFileSync('PriceTable.lua');
                 replaceFileSync('ItemLookUpTable_EN.lua');
@@ -291,7 +294,7 @@ hooks.registerMessageHook('ttc', function (msg, args) {
 
                 doItemSearch(msg, args);
                 msg.channel.stopTyping();              
-            }));
+            });
                
         });
     }
